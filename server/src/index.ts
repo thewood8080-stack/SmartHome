@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import authRoutes from './routes/auth';
 
 dotenv.config();
 
@@ -20,6 +21,8 @@ mongoose
   .catch((err) => console.error('❌ שגיאת חיבור MongoDB:', err));
 
 // נתיבים
+app.use('/api/auth', authRoutes);
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'SmartHome Server פעיל' });
 });
