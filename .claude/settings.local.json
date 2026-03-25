@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"mkdir \"\"C:\\\\Users\\\\יוסף שוקרון\\\\Desktop\\\\SmartHome\"\"\")",
+      "Bash(cmd /c \"cd \"\"C:\\\\Users\\\\יוסף שוקרון\\\\Desktop\\\\SmartHome\"\" && mkdir client\\\\src\\\\pages\\\\Auth client\\\\src\\\\pages\\\\Dashboard client\\\\src\\\\pages\\\\Tasks client\\\\src\\\\pages\\\\Shopping client\\\\src\\\\pages\\\\Budget client\\\\src\\\\pages\\\\Inventory client\\\\src\\\\pages\\\\Calendar client\\\\src\\\\pages\\\\Events client\\\\src\\\\pages\\\\Gifts client\\\\src\\\\pages\\\\Medical client\\\\src\\\\pages\\\\Vehicle client\\\\src\\\\pages\\\\Gamification client\\\\src\\\\components client\\\\src\\\\services client\\\\src\\\\hooks client\\\\src\\\\store client\\\\src\\\\types client\\\\src\\\\utils client\\\\public server\\\\routes server\\\\models server\\\\middleware server\\\\services assets\\\\fonts assets\\\\images\")",
+      "Bash(printf '\\\\n')",
+      "Bash(npx create-vite@latest . --template react-ts)"
+    ]
+  }
+}
