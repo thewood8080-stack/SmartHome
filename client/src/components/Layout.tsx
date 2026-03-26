@@ -16,6 +16,7 @@ const navItems = [
   { to: '/vehicle',     icon: '🚗', label: STRINGS.nav.vehicle },
   { to: '/leaderboard', icon: '🏆', label: STRINGS.nav.gamification },
   { to: '/admin',       icon: '⚙️', label: 'ניהול', adminOnly: true },
+  { to: '/help',        icon: '❓', label: 'מדריך' },
 ];
 
 // 5 פריטים ראשיים לתפריט תחתון
