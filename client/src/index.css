@@ -108,3 +108,27 @@ a { text-decoration: none; color: inherit; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .main-content { padding: 1rem; } }
+
+/* ===== מובייל ===== */
+@media (max-width: 768px) {
+  /* הסתר sidebar */
+  nav[style*="220px"] { display: none !important; }
+
+  /* הצג bottom nav */
+  nav[style*="bottom: 0"] { display: flex !important; }
+
+  /* תוכן ראשי */
+  .main-content, main { padding: 1rem !important; padding-bottom: 5rem !important; }
+
+  /* גרידים */
+  .grid-2, .grid-3 { grid-template-columns: 1fr !important; }
+
+  /* כרטיסים */
+  .card { padding: 1rem !important; }
+
+  /* כפתורים גדולים יותר */
+  .btn { padding: 0.65rem 1rem !important; }
+
+  /* שורשבורד shortcuts */
+  div[style*="repeat(4, 1fr)"] { grid-template-columns: repeat(4, 1fr) !important; }
+}
