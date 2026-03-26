@@ -14,6 +14,7 @@ import MedicalPage from './pages/Medical/MedicalPage';
 import VehiclePage from './pages/Vehicle/VehiclePage';
 import LeaderboardPage from './pages/Gamification/LeaderboardPage';
 import AdminPage from './pages/Admin/AdminPage';
+import HelpPage from './pages/Help/HelpPage';
 
 // הגנה על routes שדורשים כניסה
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/vehicle"     element={<PrivateRoute><VehiclePage /></PrivateRoute>} />
         <Route path="/leaderboard" element={<PrivateRoute><LeaderboardPage /></PrivateRoute>} />
         <Route path="/admin"       element={<PrivateRoute><AdminPage /></PrivateRoute>} />
+        <Route path="/help"        element={<PrivateRoute><HelpPage /></PrivateRoute>} />
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
