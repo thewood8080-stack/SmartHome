@@ -6,9 +6,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 const router = Router();
 
 // קבלת כל הקיצורים
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const shortcuts = await Shortcut.find()
+    const shortcuts = await Shortcut.find({ householdId: req.householdId })
       .populate('addedBy', 'name')
       .sort({ order: 1 });
     res.json(shortcuts);
@@ -22,7 +22,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { label, url, icon, color, order } = req.body;
     const shortcut = await Shortcut.create({
-      label, url, icon, color, order,
+      label, url, icon, color, order, householdId: req.householdId,
       addedBy: req.userId,
     });
     res.status(201).json(shortcut);

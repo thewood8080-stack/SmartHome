@@ -6,9 +6,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 const router = Router();
 
 // קבלת כל המתנות
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const gifts = await Gift.find()
+    const gifts = await Gift.find({ householdId: req.householdId })
       .populate('addedBy', 'name')
       .sort({ date: 1 });
     res.json(gifts);
@@ -22,7 +22,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { recipientName, occasion, date, ideas, note } = req.body;
     const gift = await Gift.create({
-      recipientName, occasion, date, ideas, note,
+      recipientName, occasion, date, ideas, note, householdId: req.householdId,
       addedBy: req.userId,
     });
     res.status(201).json(gift);

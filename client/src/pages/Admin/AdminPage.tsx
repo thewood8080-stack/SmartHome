@@ -43,15 +43,29 @@ export default function AdminPage() {
     setUsers((p) => p.filter((u) => u._id !== id));
   };
 
+  const { household } = useAuthStore();
+
   if (user?.role !== 'admin') return <div className="empty-state"><span>🔒</span>גישה למנהלים בלבד</div>;
   if (loading) return <div className="spinner" />;
 
-  const pending = users.filter((u) => !u.approved);
+  const pending  = users.filter((u) => !u.approved);
   const approved = users.filter((u) => u.approved);
 
   return (
     <div>
       <h1 style={styles.pageTitle}>⚙️ ניהול משתמשים</h1>
+
+      {/* קוד הצטרפות */}
+      {household && (
+        <div className="card" style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#EEF4FF' }}>
+          <div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-gray)' }}>קוד הצטרפות לבית — {household.name}</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 700, letterSpacing: '0.2em', color: 'var(--color-primary)' }}>{household.inviteCode}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--color-gray)' }}>שלח את הקוד לבני המשפחה שיצטרפו</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(household.inviteCode)}>📋 העתק</button>
+        </div>
+      )}
 
       {/* ממתינים לאישור */}
       {pending.length > 0 && (

@@ -6,9 +6,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 const router = Router();
 
 // קבלת כל הרכבים
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const vehicles = await Vehicle.find()
+    const vehicles = await Vehicle.find({ householdId: req.householdId })
       .populate('addedBy', 'name')
       .sort({ createdAt: -1 });
     res.json(vehicles);
@@ -22,7 +22,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { name, plateNumber, year, lastService, nextService, insurance, test, fuelType, notes } = req.body;
     const vehicle = await Vehicle.create({
-      name, plateNumber, year, lastService, nextService, insurance, test, fuelType, notes,
+      name, plateNumber, year, lastService, nextService, insurance, test, fuelType, notes, householdId: req.householdId,
       addedBy: req.userId,
     });
     res.status(201).json(vehicle);

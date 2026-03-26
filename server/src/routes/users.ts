@@ -6,9 +6,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 const router = Router();
 
 // קבלת כל המשתמשים
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: 1 });
+    const users = await User.find({ householdId: req.householdId }).select('-password').sort({ createdAt: 1 });
     res.json(users);
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });
@@ -40,9 +40,9 @@ router.patch('/:id/role', requireAuth, async (req: AuthRequest, res: Response) =
 });
 
 // לוח מובילים — נקודות
-router.get('/leaderboard', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/leaderboard', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const users = await User.find({ approved: true })
+    const users = await User.find({ householdId: req.householdId, approved: true })
       .select('name photoURL points role')
       .sort({ points: -1 });
     res.json(users);

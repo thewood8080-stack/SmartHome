@@ -5,6 +5,7 @@ export interface ITask extends Document {
   description?: string;
   assignedTo?: mongoose.Types.ObjectId;
   createdBy: mongoose.Types.ObjectId;
+  householdId: mongoose.Types.ObjectId;
   dueDate?: Date;
   priority: 'low' | 'medium' | 'high';
   status: 'todo' | 'inprogress' | 'done';

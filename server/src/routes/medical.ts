@@ -8,7 +8,9 @@ const router = Router();
 // קבלת רשומות (אפשרות פילטור לפי memberId)
 router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const filter = req.query.memberId ? { memberId: req.query.memberId } : {};
+    const filter: Record<string, unknown> = { householdId: req.householdId };
+    if (req.query.memberId) filter.memberId = req.query.memberId;
+    const filter2 = req.query.memberId ? { memberId: req.query.memberId } : {};
     const records = await Medical.find(filter)
       .populate('memberId', 'name photoURL')
       .populate('addedBy', 'name')
