@@ -7,9 +7,9 @@ import { emitToAll } from '../socket';
 const router = Router();
 
 // קבלת כל הפריטים
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const items = await ShoppingItem.find()
+    const items = await ShoppingItem.find({ householdId: req.householdId })
       .populate('addedBy', 'name photoURL')
       .populate('boughtBy', 'name')
       .sort({ createdAt: -1 });
@@ -24,7 +24,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { name, quantity, unit, category, urgent } = req.body;
     const item = await ShoppingItem.create({
-      name, quantity, unit, category, urgent,
+      name, quantity, unit, category, urgent, householdId: req.householdId,
       addedBy: req.userId,
     });
     const populated = await item.populate('addedBy', 'name photoURL');
@@ -68,7 +68,7 @@ router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
 });
 
 // ניקוי כל הנקנה
-router.delete('/clear/bought', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.delete('/clear/bought', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     await ShoppingItem.deleteMany({ bought: true });
     emitToAll('shopping:cleared', {});

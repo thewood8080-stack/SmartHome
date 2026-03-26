@@ -9,7 +9,7 @@ const router = Router();
 router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { month, year } = req.query;
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = { householdId: req.householdId };
 
     if (month && year) {
       const start = new Date(Number(year), Number(month) - 1, 1);
@@ -31,7 +31,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { title, amount, type, category, date, note } = req.body;
     const record = await Budget.create({
-      title, amount, type, category, date, note,
+      title, amount, type, category, date, note, householdId: req.householdId,
       addedBy: req.userId,
     });
     res.status(201).json(record);

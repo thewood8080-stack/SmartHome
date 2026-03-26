@@ -8,9 +8,9 @@ import { emitToAll } from '../socket';
 const router = Router();
 
 // קבלת כל המשימות
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const tasks = await Task.find()
+    const tasks = await Task.find({ householdId: req.householdId })
       .populate('assignedTo', 'name photoURL')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 });
@@ -30,7 +30,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
     const points = pointsMap[priority] || 20;
 
     const task = await Task.create({
-      title, description, assignedTo, dueDate, priority, recurring,
+      title, description, assignedTo, dueDate, priority, recurring, householdId: req.householdId,
       points,
       createdBy: req.userId,
     });

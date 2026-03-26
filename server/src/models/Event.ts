@@ -8,6 +8,7 @@ export interface IEvent extends Document {
   allDay: boolean;
   color?: string;
   createdBy: mongoose.Types.ObjectId;
+  householdId: mongoose.Types.ObjectId;
   participants: mongoose.Types.ObjectId[];
   reminder?: number; // minutes before
 }

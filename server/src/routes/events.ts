@@ -6,9 +6,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 const router = Router();
 
 // קבלת כל האירועים
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const events = await Event.find()
+    const events = await Event.find({ householdId: req.householdId })
       .populate('createdBy', 'name photoURL')
       .populate('participants', 'name photoURL')
       .sort({ date: 1 });
@@ -23,7 +23,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { title, description, date, endDate, allDay, color, participants, reminder } = req.body;
     const event = await Event.create({
-      title, description, date, endDate, allDay, color, participants, reminder,
+      title, description, date, endDate, allDay, color, participants, reminder, householdId: req.householdId,
       createdBy: req.userId,
     });
     const populated = await event.populate(['createdBy', 'participants']);

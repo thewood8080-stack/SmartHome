@@ -6,9 +6,9 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 const router = Router();
 
 // קבלת כל המלאי
-router.get('/', requireAuth, async (_req: AuthRequest, res: Response) => {
+router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const items = await Inventory.find()
+    const items = await Inventory.find({ householdId: req.householdId })
       .populate('addedBy', 'name')
       .sort({ category: 1, name: 1 });
     res.json(items);
@@ -22,7 +22,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { name, category, quantity, unit, minQuantity, location, expiryDate, note } = req.body;
     const item = await Inventory.create({
-      name, category, quantity, unit, minQuantity, location, expiryDate, note,
+      name, category, quantity, unit, minQuantity, location, expiryDate, note, householdId: req.householdId,
       addedBy: req.userId,
     });
     res.status(201).json(item);
