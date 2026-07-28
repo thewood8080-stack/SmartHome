@@ -63,7 +63,14 @@ export default function AdminPage() {
             <div style={{ fontSize: '1.6rem', fontWeight: 700, letterSpacing: '0.2em', color: 'var(--color-primary)' }}>{household.inviteCode}</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--color-gray)' }}>שלח את הקוד לבני המשפחה שיצטרפו</div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(household.inviteCode)}>📋 העתק</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigator.clipboard.writeText(household.inviteCode)}>📋 העתק קוד</button>
+            <button className="btn btn-primary btn-sm" onClick={() => {
+              const link = `${window.location.origin}/login?join=${household.inviteCode}`;
+              navigator.clipboard.writeText(link);
+              alert('הקישור הועתק! שלח אותו לבני המשפחה');
+            }}>🔗 שתף קישור</button>
+          </div>
         </div>
       )}
 

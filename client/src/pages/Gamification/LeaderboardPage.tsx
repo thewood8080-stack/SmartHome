@@ -31,10 +31,9 @@ export default function LeaderboardPage() {
   }, []);
 
   const resetPoints = async () => {
-    if (!confirm('לאפס נקודות לכולם?')) return;
-    // איפוס — עדכון כל המשתמשים ל-0
-    await Promise.all(leaders.map((u) => api.patch(`/users/${u._id}/role`, { role: u.role }))); // placeholder — reset בנפרד
-    alert('האיפוס בוצע');
+    if (!confirm('לאפס נקודות לכולם? הפעולה אינה הפיכה.')) return;
+    await api.post('/users/reset-points');
+    setLeaders((p) => p.map((u) => ({ ...u, points: 0 })));
   };
 
   const getBadges = (points: number) =>
