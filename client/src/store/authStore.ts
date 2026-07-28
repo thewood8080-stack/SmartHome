@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '../types';
 
-interface Household { name: string; inviteCode: string; }
+interface Household { id: string; name: string; inviteCode: string; }
 
 interface AuthState {
   user: User | null;
