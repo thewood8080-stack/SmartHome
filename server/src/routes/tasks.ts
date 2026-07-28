@@ -3,7 +3,7 @@ import { Router, Response } from 'express';
 import Task from '../models/Task';
 import User from '../models/User';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { emitToAll } from '../socket';
+import { emitToHousehold } from '../socket';
 
 const router = Router();
 
@@ -36,7 +36,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
     });
 
     const populated = await task.populate(['assignedTo', 'createdBy']);
-    emitToAll('task:created', populated);
+    emitToHousehold(req.householdId, 'task:created', populated);
     res.status(201).json(populated);
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });
@@ -62,7 +62,7 @@ router.patch('/:id/status', requireAuth, async (req: AuthRequest, res: Response)
     }
 
     await task.save();
-    emitToAll('task:updated', task);
+    emitToHousehold(req.householdId, 'task:updated', task);
     res.json(task);
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });
@@ -76,7 +76,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
       .populate('assignedTo', 'name photoURL')
       .populate('createdBy', 'name');
     if (!task) { res.status(404).json({ message: 'משימה לא נמצאה' }); return; }
-    emitToAll('task:updated', task);
+    emitToHousehold(req.householdId, 'task:updated', task);
     res.json(task);
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });
@@ -87,7 +87,7 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
 router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     await Task.findByIdAndDelete(req.params.id);
-    emitToAll('task:deleted', { id: req.params.id });
+    emitToHousehold(req.householdId, 'task:deleted', { id: req.params.id });
     res.json({ message: 'המשימה נמחקה' });
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });

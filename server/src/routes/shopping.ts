@@ -2,7 +2,7 @@
 import { Router, Response } from 'express';
 import ShoppingItem from '../models/ShoppingItem';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { emitToAll } from '../socket';
+import { emitToHousehold } from '../socket';
 
 const router = Router();
 
@@ -28,7 +28,7 @@ router.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
       addedBy: req.userId,
     });
     const populated = await item.populate('addedBy', 'name photoURL');
-    emitToAll('shopping:created', populated);
+    emitToHousehold(req.householdId, 'shopping:created', populated);
     res.status(201).json(populated);
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });
@@ -49,7 +49,7 @@ router.patch('/:id/bought', requireAuth, async (req: AuthRequest, res: Response)
       { new: true }
     ).populate('addedBy', 'name photoURL').populate('boughtBy', 'name');
     if (!item) { res.status(404).json({ message: 'פריט לא נמצא' }); return; }
-    emitToAll('shopping:updated', item);
+    emitToHousehold(req.householdId, 'shopping:updated', item);
     res.json(item);
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });
@@ -60,18 +60,18 @@ router.patch('/:id/bought', requireAuth, async (req: AuthRequest, res: Response)
 router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
     await ShoppingItem.findByIdAndDelete(req.params.id);
-    emitToAll('shopping:deleted', { id: req.params.id });
+    emitToHousehold(req.householdId, 'shopping:deleted', { id: req.params.id });
     res.json({ message: 'הפריט נמחק' });
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });
   }
 });
 
-// ניקוי כל הנקנה
+// ניקוי כל הנקנה — לפי בית בלבד
 router.delete('/clear/bought', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    await ShoppingItem.deleteMany({ bought: true });
-    emitToAll('shopping:cleared', {});
+    await ShoppingItem.deleteMany({ householdId: req.householdId, bought: true });
+    emitToHousehold(req.householdId, 'shopping:cleared', {});
     res.json({ message: 'הפריטים שנקנו נמחקו' });
   } catch {
     res.status(500).json({ message: 'שגיאת שרת' });

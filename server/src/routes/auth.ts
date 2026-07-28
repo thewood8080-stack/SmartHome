@@ -65,7 +65,7 @@ router.post('/register', async (req: Request, res: Response) => {
     res.status(201).json({
       token,
       user: { id: user._id, name: user.name, email: user.email, role: user.role, approved: user.approved, points: user.points },
-      household: { name: household.name, inviteCode: household.inviteCode },
+      household: { id: household._id.toString(), name: household.name, inviteCode: household.inviteCode },
     });
   } catch (err) {
     console.error(err);

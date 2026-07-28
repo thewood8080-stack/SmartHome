@@ -51,6 +51,16 @@ router.get('/leaderboard', requireAuth, async (req: AuthRequest, res: Response) 
   }
 });
 
+// איפוס נקודות לכל בני הבית
+router.post('/reset-points', requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    await User.updateMany({ householdId: req.householdId }, { points: 0 });
+    res.json({ message: 'הנקודות אופסו' });
+  } catch {
+    res.status(500).json({ message: 'שגיאת שרת' });
+  }
+});
+
 // מחיקת משתמש
 router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
