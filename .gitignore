@@ -22,3 +22,19 @@ npm-debug.log*
 
 # VSCode
 .vscode/
+
+# .NET
+SmartHomeApi/bin/
+SmartHomeApi/obj/
+*.db
+*.db-shm
+*.db-wal
+
+# סודות מקומיים — לעולם לא לגיטהאב!
+SmartHomeApi/appsettings.Local.json
+
+# Visual Studio
+.vs/
+
+# Claude
+.claude/
