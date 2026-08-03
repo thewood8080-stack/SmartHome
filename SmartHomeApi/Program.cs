@@ -92,6 +92,9 @@ builder.Services.AddCors(o => o.AddPolicy("Client", p => p
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
+// ניקוי HTML מעורך הטקסט העשיר — הגנת XSS בצד השרת.
+builder.Services.AddSingleton<IHtmlSanitizerService, HtmlSanitizerService>();
+
 // --- Application state ---
 // singleton מעל IMemoryCache: מונה מבקרים ומשתמשים מחוברים, משותפים לכל הבקשות.
 builder.Services.AddMemoryCache();

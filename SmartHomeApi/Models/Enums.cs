@@ -12,6 +12,13 @@ public enum TaskPriority
 public enum HouseTaskStatus
 {
     Pending = 0,
+
+    /// <summary>
+    /// הערך 2 ולא 1 בכוונה: Pending ו-Done נשמרו על המספרים המקוריים שלהם
+    /// כדי שמשימות קיימות במסד לא ישנו משמעות.
+    /// </summary>
+    InProgress = 2,
+
     Done = 1
 }
 
