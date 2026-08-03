@@ -110,7 +110,7 @@ export default function LoginPage() {
           </div>
           <div className="form-group">
             <label>סיסמה</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="לפחות 6 תווים" />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} placeholder="לפחות 8 תווים, אות גדולה וספרה" />
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }} disabled={loading}>
