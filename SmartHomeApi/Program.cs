@@ -1,9 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using SmartHomeApi.Data;
+using SmartHomeApi.DTOs;
+using SmartHomeApi.Middleware;
 using SmartHomeApi.Models;
 using SmartHomeApi.Services;
 
@@ -25,6 +29,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         options.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddClaimsPrincipalFactory<ApplicationUserClaimsPrincipalFactory>()
     .AddDefaultTokenProviders();
 
 // זה API — מחזירים קודי סטטוס במקום להפנות לדפי התחברות שלא קיימים.
@@ -34,17 +39,19 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.IsEssential = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(2);
     options.SlidingExpiration = true;
+    // גם כאן הגוף חייב להיות { "message": "..." } — ה-client קורא רק את השדה הזה.
     options.Events.OnRedirectToLogin = ctx =>
-    {
-        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        return Task.CompletedTask;
-    };
+        WriteMessageAsync(ctx.Response, StatusCodes.Status401Unauthorized, "נדרשת התחברות");
     options.Events.OnRedirectToAccessDenied = ctx =>
-    {
-        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-        return Task.CompletedTask;
-    };
+        WriteMessageAsync(ctx.Response, StatusCodes.Status403Forbidden, "אין לך הרשאה לפעולה הזו");
 });
+
+static Task WriteMessageAsync(HttpResponse response, int statusCode, string message)
+{
+    response.StatusCode = statusCode;
+    response.ContentType = "application/json; charset=utf-8";
+    return response.WriteAsJsonAsync(new MessageResponse(message));
+}
 
 // --- JSON — camelCase כדי שיתאים ל-client הקיים ---
 builder.Services.AddControllers()
@@ -53,6 +60,20 @@ builder.Services.AddControllers()
         o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
+// ברירת המחדל של [ApiController] היא ValidationProblemDetails — פורמט שה-client לא מכיר.
+builder.Services.Configure<ApiBehaviorOptions>(o =>
+{
+    o.InvalidModelStateResponseFactory = context =>
+    {
+        var message = context.ModelState
+            .SelectMany(entry => entry.Value?.Errors ?? new ModelErrorCollection())
+            .Select(e => e.ErrorMessage)
+            .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m)) ?? "הנתונים שנשלחו אינם תקינים";
+
+        return new BadRequestObjectResult(new MessageResponse(message));
+    };
+});
 
 // --- Session ---
 builder.Services.AddDistributedMemoryCache();
@@ -70,6 +91,11 @@ builder.Services.AddCors(o => o.AddPolicy("Client", p => p
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+// --- Application state ---
+// singleton מעל IMemoryCache: מונה מבקרים ומשתמשים מחוברים, משותפים לכל הבקשות.
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IAppStatsService, AppStatsService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(o => o.SwaggerDoc("v1", new OpenApiInfo
@@ -96,6 +122,9 @@ app.UseCors("Client");
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// אחרי האימות — כדי שהמונה ידע מי המשתמש המחובר.
+app.UseMiddleware<VisitorTrackingMiddleware>();
 
 app.MapControllers();
 
