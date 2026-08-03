@@ -9,7 +9,7 @@ export const useSocket = (): Socket | null => {
 
   useEffect(() => {
     // חיבור + הצטרפות לחדר הבית
-    const socket = connectSocket(household?.id);
+    connectSocket(household?.id);
     return () => {
       disconnectSocket();
     };
