@@ -95,6 +95,9 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 // ניקוי HTML מעורך הטקסט העשיר — הגנת XSS בצד השרת.
 builder.Services.AddSingleton<IHtmlSanitizerService, HtmlSanitizerService>();
 
+// אחסון תמונות. המפתחות נקראים מ-User Secrets בלבד — ראה CloudinaryService.
+builder.Services.AddSingleton<ICloudinaryService, CloudinaryService>();
+
 // --- Application state ---
 // singleton מעל IMemoryCache: מונה מבקרים ומשתמשים מחוברים, משותפים לכל הבקשות.
 builder.Services.AddMemoryCache();
