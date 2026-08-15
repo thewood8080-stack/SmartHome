@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using SmartHomeApi.Data;
 using SmartHomeApi.DTOs;
+using SmartHomeApi.Hubs;
 using SmartHomeApi.Middleware;
 using SmartHomeApi.Models;
 using SmartHomeApi.Services;
@@ -61,6 +62,14 @@ builder.Services.AddControllers()
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
+// --- SignalR — אותן הגדרות JSON כמו ב-Controllers, אחרת ה-client יקבל שמות שדות שונים ---
+builder.Services.AddSignalR()
+    .AddJsonProtocol(o =>
+    {
+        o.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 // ברירת המחדל של [ApiController] היא ValidationProblemDetails — פורמט שה-client לא מכיר.
 builder.Services.Configure<ApiBehaviorOptions>(o =>
 {
@@ -91,6 +100,9 @@ builder.Services.AddCors(o => o.AddPolicy("Client", p => p
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+// שידור עדכונים בזמן אמת מהקונטרולרים, מעל ה-Hub.
+builder.Services.AddScoped<IRealtimeNotifier, RealtimeNotifier>();
 
 // ניקוי HTML מעורך הטקסט העשיר — הגנת XSS בצד השרת.
 builder.Services.AddSingleton<IHtmlSanitizerService, HtmlSanitizerService>();
@@ -133,6 +145,7 @@ app.UseAuthorization();
 app.UseMiddleware<VisitorTrackingMiddleware>();
 
 app.MapControllers();
+app.MapHub<SmartHomeHub>("/hubs/smarthome");
 
 await DbSeeder.SeedAsync(app.Services);
 

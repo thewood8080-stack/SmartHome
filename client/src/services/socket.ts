@@ -1,26 +1,40 @@
-// חיבור Socket.io לצד הלקוח
-import { io, Socket } from 'socket.io-client';
+// חיבור SignalR לצד הלקוח
+import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// VITE_API_URL הוא ה-origin בלבד; בפיתוח vite מפרוקסי רק /api, ולכן כתובת ה-Hub מלאה
+const HUB_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5263'}/hubs/smarthome`;
 
-let socket: Socket | null = null;
+let connection: HubConnection | null = null;
 
-export const connectSocket = (householdId?: string | null): Socket => {
-  if (!socket) {
-    socket = io(SOCKET_URL, { withCredentials: true });
+/**
+ * מחזיר את החיבור הקיים, ואם אין — יוצר ומתחיל אחד.
+ * householdId כבר לא נשלח: השרת משייך את החיבור לקבוצת הבית לפי המשתמש המחובר,
+ * כך שאי אפשר לבקש להאזין לבית של מישהו אחר. הפרמטר נשמר כדי לא לשנות את הקוד הקורא.
+ */
+export const connectSocket = (_householdId?: string | null): HubConnection => {
+  if (!connection) {
+    connection = new HubConnectionBuilder()
+      .withUrl(HUB_URL, { withCredentials: true })
+      .withAutomaticReconnect()
+      .build();
+
+    // ההאזנות נרשמות לפני שהחיבור עולה, ולכן אין צורך להמתין ל-start
+    connection.start().catch(() => {
+      // כשל בהתחברות לא אמור להפיל את הדף — הדפים עובדים גם בלי עדכון חי
+    });
   }
-  if (householdId) {
-    // הצטרפות לחדר הבית — עדכונים בזמן אמת לבני הבית בלבד
-    socket.emit('join:household', householdId);
-  }
-  return socket;
+
+  return connection;
 };
 
 export const disconnectSocket = (): void => {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
+  if (connection) {
+    const active = connection;
+    connection = null;
+    active.stop().catch(() => {
+      // עצירה באמצע התחברות זורקת — אין מה לעשות עם זה
+    });
   }
 };
 
-export const getSocket = (): Socket | null => socket;
+export const getSocket = (): HubConnection | null => connection;

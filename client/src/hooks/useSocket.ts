@@ -1,14 +1,14 @@
-// hook לניהול חיבור Socket.io
+// hook לניהול חיבור SignalR
 import { useEffect } from 'react';
+import { HubConnection } from '@microsoft/signalr';
 import { connectSocket, disconnectSocket } from '../services/socket';
 import { useAuthStore } from '../store/authStore';
-import { Socket } from 'socket.io-client';
 
-export const useSocket = (): Socket | null => {
+export const useSocket = (): HubConnection | null => {
   const { household } = useAuthStore();
 
   useEffect(() => {
-    // חיבור + הצטרפות לחדר הבית
+    // השיוך לקבוצת הבית נעשה בשרת לפי המשתמש המחובר
     connectSocket(household?.id);
     return () => {
       disconnectSocket();
@@ -23,10 +23,10 @@ export const useSocketEvent = <T>(event: string, handler: (data: T) => void): vo
   const { household } = useAuthStore();
 
   useEffect(() => {
-    const socket = connectSocket(household?.id);
-    socket.on(event, handler);
+    const connection = connectSocket(household?.id);
+    connection.on(event, handler);
     return () => {
-      socket.off(event, handler);
+      connection.off(event, handler);
     };
   }, [event, handler, household?.id]);
 };
