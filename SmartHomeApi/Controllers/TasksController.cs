@@ -13,6 +13,7 @@ namespace SmartHomeApi.Controllers;
 /// משימות בית.
 /// הבידוד בין משקי בית נעשה ב-Global Query Filter על HouseTask,
 /// ולכן כל שאילתה כאן כבר מוגבלת אוטומטית למשק הבית של המשתמש המחובר.
+/// כל פעולה משדרת גם עדכון בזמן אמת לשאר בני הבית.
 /// </summary>
 [ApiController]
 [Route("api/tasks")]
@@ -23,15 +24,18 @@ public class TasksController : ControllerBase
     private readonly ApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IHtmlSanitizerService _sanitizer;
+    private readonly IRealtimeNotifier _notifier;
 
     public TasksController(
         ApplicationDbContext db,
         ICurrentUserService currentUser,
-        IHtmlSanitizerService sanitizer)
+        IHtmlSanitizerService sanitizer,
+        IRealtimeNotifier notifier)
     {
         _db = db;
         _currentUser = currentUser;
         _sanitizer = sanitizer;
+        _notifier = notifier;
     }
 
     /// <summary>רשימת המשימות של הבית, עם סינון אופציונלי.</summary>
@@ -120,7 +124,11 @@ public class TasksController : ControllerBase
         await _db.SaveChangesAsync();
 
         var created = await BaseQuery().FirstAsync(t => t.Id == task.Id);
-        return StatusCode(StatusCodes.Status201Created, TaskMapping.ToDto(created));
+        var dto = TaskMapping.ToDto(created);
+
+        await _notifier.NotifyHouseholdAsync(householdId.Value, "task:created", dto);
+
+        return StatusCode(StatusCodes.Status201Created, dto);
     }
 
     /// <summary>עדכון משימה קיימת.</summary>
@@ -160,7 +168,11 @@ public class TasksController : ControllerBase
         await _db.SaveChangesAsync();
 
         var updated = await BaseQuery().FirstAsync(t => t.Id == task.Id);
-        return Ok(TaskMapping.ToDto(updated));
+        var dto = TaskMapping.ToDto(updated);
+
+        await _notifier.NotifyHouseholdAsync(householdId.Value, "task:updated", dto);
+
+        return Ok(dto);
     }
 
     /// <summary>שינוי סטטוס. במעבר ל'בוצע' הנקודות נזקפות למי שביצע את הפעולה.</summary>
@@ -170,6 +182,10 @@ public class TasksController : ControllerBase
     [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateStatus(int id, UpdateTaskStatusRequest request)
     {
+        var householdId = _currentUser.HouseholdId;
+        if (householdId is null)
+            return Forbid();
+
         if (!TaskMapping.TryParseStatus(request.Status, out var newStatus))
             return BadRequest(new MessageResponse("סטטוס לא מוכר"));
 
@@ -201,7 +217,12 @@ public class TasksController : ControllerBase
         await _db.SaveChangesAsync();
 
         var updated = await BaseQuery().FirstAsync(t => t.Id == task.Id);
-        return Ok(TaskMapping.ToDto(updated));
+        var dto = TaskMapping.ToDto(updated);
+
+        // כאן משתנות גם הנקודות של המבצע, ולכן חשוב שכל בני הבית יקבלו את העדכון.
+        await _notifier.NotifyHouseholdAsync(householdId.Value, "task:updated", dto);
+
+        return Ok(dto);
     }
 
     /// <summary>מחיקת משימה.</summary>
@@ -210,12 +231,20 @@ public class TasksController : ControllerBase
     [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
+        var householdId = _currentUser.HouseholdId;
+        if (householdId is null)
+            return Forbid();
+
         var task = await _db.HouseTasks.FirstOrDefaultAsync(t => t.Id == id);
         if (task is null)
             return NotFound(new MessageResponse("המשימה לא נמצאה"));
 
         _db.HouseTasks.Remove(task);
         await _db.SaveChangesAsync();
+
+        // ה-client מזהה את השורה למחיקה לפי _id, שהוא מחרוזת.
+        await _notifier.NotifyHouseholdAsync(
+            householdId.Value, "task:deleted", new { id = id.ToString() });
 
         return Ok(new MessageResponse("המשימה נמחקה"));
     }
