@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useSocketEvent } from '../../hooks/useSocket';
 
 interface CalEvent {
   _id: string;
@@ -27,6 +28,16 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // עדכון בזמן אמת
+  // היוצר מקבל את האירוע גם מהשידור וגם מ-load שאחרי השמירה, ולכן ההוספה
+  // מדלגת על אירוע שכבר ברשימה — אחרת היה נוצר כפל שורות עם אותו _id.
+  useSocketEvent<CalEvent>('event:created', (ev) =>
+    setEvents((prev) => prev.some((x) => x._id === ev._id) ? prev : [ev, ...prev]));
+  useSocketEvent<CalEvent>('event:updated', (ev) =>
+    setEvents((prev) => prev.map((x) => x._id === ev._id ? ev : x)));
+  useSocketEvent<{ id: string }>('event:deleted', ({ id }) =>
+    setEvents((prev) => prev.filter((x) => x._id !== id)));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

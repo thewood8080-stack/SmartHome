@@ -2,6 +2,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useSocketEvent } from '../../hooks/useSocket';
+
+// האירוע המקושר, בגרסה המקוצרת שהשרת מחזיר בתוך המתנה
+interface LinkedEvent {
+  id: string;
+  title: string;
+  date: string;
+}
 
 interface Gift {
   _id: string;
@@ -12,6 +20,8 @@ interface Gift {
   purchased: boolean;
   purchasedItem?: string;
   note?: string;
+  eventId?: string | null;
+  event?: LinkedEvent | null;
 }
 
 export default function GiftsPage() {
@@ -19,9 +29,11 @@ export default function GiftsPage() {
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ recipientName: '', occasion: '', date: '', ideas: '', note: '' });
+  const [form, setForm] = useState({ recipientName: '', occasion: '', date: '', ideas: '', note: '', eventId: '' });
   const [editPurchase, setEditPurchase] = useState<string | null>(null);
   const [purchasedItem, setPurchasedItem] = useState('');
+  // רשימת האירועים לבורר הקישור בטופס
+  const [events, setEvents] = useState<LinkedEvent[]>([]);
 
   const load = useCallback(async () => {
     const { data } = await api.get('/gifts');
@@ -29,13 +41,27 @@ export default function GiftsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    api.get('/events').then(({ data }) => setEvents(data));
+  }, [load]);
+
+  // עדכון בזמן אמת
+  // המוסיף מקבל את המתנה גם מהשידור וגם מ-load שאחרי השמירה, ולכן ההוספה
+  // מדלגת על מתנה שכבר ברשימה — אחרת היה נוצר כפל שורות עם אותו _id.
+  useSocketEvent<Gift>('gift:created', (g) =>
+    setGifts((prev) => prev.some((x) => x._id === g._id) ? prev : [g, ...prev]));
+  useSocketEvent<Gift>('gift:updated', (g) =>
+    setGifts((prev) => prev.map((x) => x._id === g._id ? g : x)));
+  useSocketEvent<{ id: string }>('gift:deleted', ({ id }) =>
+    setGifts((prev) => prev.filter((x) => x._id !== id)));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const ideas = form.ideas.split(',').map((s) => s.trim()).filter(Boolean);
-    await api.post('/gifts', { ...form, ideas });
-    setForm({ recipientName: '', occasion: '', date: '', ideas: '', note: '' });
+    // השרת מצפה ל-eventId מספרי; "ללא קישור" נשלח כ-undefined ולא כמחרוזת ריקה.
+    await api.post('/gifts', { ...form, ideas, eventId: form.eventId ? Number(form.eventId) : undefined });
+    setForm({ recipientName: '', occasion: '', date: '', ideas: '', note: '', eventId: '' });
     setShowForm(false);
     load();
   };
@@ -86,9 +112,22 @@ export default function GiftsPage() {
               <input value={form.ideas} onChange={(e) => setForm({ ...form, ideas: e.target.value })} placeholder="ספר, תכשיט, כרטיסים..." />
             </div>
           </div>
-          <div className="form-group">
-            <label>הערה</label>
-            <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="אופציונלי" />
+          <div className="grid-2">
+            <div className="form-group">
+              <label>קישור לאירוע ביומן</label>
+              <select value={form.eventId} onChange={(e) => setForm({ ...form, eventId: e.target.value })}>
+                <option value="">ללא קישור</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} — {new Date(ev.date).toLocaleDateString('he-IL')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>הערה</label>
+              <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="אופציונלי" />
+            </div>
           </div>
           <button type="submit" className="btn btn-primary">שמור</button>
         </form>
@@ -122,6 +161,11 @@ export default function GiftsPage() {
                 {gift.purchased && gift.purchasedItem && (
                   <div style={{ color: 'var(--color-success)', fontSize: '0.85rem', marginTop: '0.3rem' }}>
                     ✅ נקנה: {gift.purchasedItem}
+                  </div>
+                )}
+                {gift.event && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', marginTop: '0.3rem' }}>
+                    🔗 מקושר לאירוע: {gift.event.title}, {new Date(gift.event.date).toLocaleDateString('he-IL')}
                   </div>
                 )}
                 {/* טופס סימון רכישה */}

@@ -236,6 +236,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             e.Property(g => g.RecipientName).IsRequired().HasMaxLength(100);
             e.Property(g => g.Occasion).IsRequired().HasMaxLength(100);
             e.Property(g => g.Ideas).IsRequired().HasDefaultValue(string.Empty);
+            e.Property(g => g.PurchasedItem).HasMaxLength(200);
             e.Property(g => g.Note).HasMaxLength(500);
 
             e.HasOne(g => g.Event)

@@ -18,6 +18,12 @@ public class Gift : IHouseholdOwned
 
     public bool IsPurchased { get; set; } = false;
 
+    /// <summary>
+    /// מה נקנה בפועל, כפי שנרשם בסימון 'נקנה'.
+    /// שדה נפרד מ-Note בכוונה — הממשק מציג את השניים בשורות שונות.
+    /// </summary>
+    public string? PurchasedItem { get; set; }
+
     public string? Note { get; set; }
 
     /// <summary>קישור אופציונלי לאירוע בלוח השנה.</summary>
