@@ -38,3 +38,6 @@ SmartHomeApi/appsettings.Local.json
 
 # Claude
 .claude/
+
+# תוצר build של TypeScript — משתנה בכל קומפילציה
+client/tsconfig.tsbuildinfo
