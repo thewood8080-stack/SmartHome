@@ -33,6 +33,10 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     .AddClaimsPrincipalFactory<ApplicationUserClaimsPrincipalFactory>()
     .AddDefaultTokenProviders();
 
+// טוקן איפוס הסיסמה תקף ל-30 דקות במקום יממה שלמה (ברירת המחדל של Identity).
+builder.Services.Configure<DataProtectionTokenProviderOptions>(o =>
+    o.TokenLifespan = TimeSpan.FromMinutes(30));
+
 // זה API — מחזירים קודי סטטוס במקום להפנות לדפי התחברות שלא קיימים.
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -109,6 +113,9 @@ builder.Services.AddSingleton<IHtmlSanitizerService, HtmlSanitizerService>();
 
 // אחסון תמונות. המפתחות נקראים מ-User Secrets בלבד — ראה CloudinaryService.
 builder.Services.AddSingleton<ICloudinaryService, CloudinaryService>();
+
+// שליחת מיילים (איפוס סיסמה). פרטי ה-SMTP נקראים מ-User Secrets בלבד.
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // --- Application state ---
 // singleton מעל IMemoryCache: מונה מבקרים ומשתמשים מחוברים, משותפים לכל הבקשות.

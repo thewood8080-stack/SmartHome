@@ -1,6 +1,6 @@
 // דף כניסה והרשמה
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
@@ -118,6 +118,12 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {mode === 'login' && (
+          <p style={styles.note}>
+            <Link to="/forgot-password" style={styles.link}>שכחת סיסמה?</Link>
+          </p>
+        )}
+
         {mode === 'join' && (
           <p style={styles.note}>אחרי ההרשמה, מנהל הבית צריך לאשר אותך</p>
         )}
@@ -137,4 +143,5 @@ const styles: Record<string, React.CSSProperties> = {
   tabActive: { background: '#fff', color: 'var(--color-primary)', boxShadow: '0 1px 6px rgba(0,0,0,0.1)' },
   hint: { background: '#EEF4FF', borderRadius: '8px', padding: '0.6rem 0.9rem', fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--color-primary)' },
   note: { marginTop: '1rem', fontSize: '0.8rem', color: 'var(--color-gray)', textAlign: 'center' },
+  link: { color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' },
 };

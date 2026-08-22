@@ -34,6 +34,31 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
+/// <summary>בקשת שליחת מייל לאיפוס סיסמה.</summary>
+public class ForgotPasswordRequest
+{
+    [Required(ErrorMessage = "נדרשת כתובת מייל")]
+    [EmailAddress(ErrorMessage = "כתובת מייל לא תקינה")]
+    public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// איפוס הסיסמה עצמו. Token הוא הטוקן מהקישור שנשלח במייל,
+/// והוא תקף ל-30 דקות (ראה DataProtectionTokenProviderOptions ב-Program.cs).
+/// </summary>
+public class ResetPasswordRequest
+{
+    [Required(ErrorMessage = "נדרשת כתובת מייל")]
+    [EmailAddress(ErrorMessage = "כתובת מייל לא תקינה")]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "הקישור אינו תקף")]
+    public string Token { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "נדרשת סיסמה חדשה")]
+    public string NewPassword { get; set; } = string.Empty;
+}
+
 /// <summary>
 /// פרטי המשתמש כפי שה-client מצפה להם: id, name, email, role, approved, points.
 /// role הוא 'admin' או 'member' — ולא שמות התפקידים של Identity.

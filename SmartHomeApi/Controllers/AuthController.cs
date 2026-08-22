@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using SmartHomeApi.Data;
 using SmartHomeApi.DTOs;
 using SmartHomeApi.Models;
@@ -19,11 +20,19 @@ namespace SmartHomeApi.Controllers;
 [Produces("application/json")]
 public class AuthController : ControllerBase
 {
+    /// <summary>מקסימום בקשות איפוס סיסמה לאותה כתובת מייל בתוך חלון הזמן.</summary>
+    private const int MaxResetRequestsPerWindow = 3;
+
+    private static readonly TimeSpan ResetRequestWindow = TimeSpan.FromHours(1);
+
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly ApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IAppStatsService _stats;
+    private readonly IEmailService _email;
+    private readonly IMemoryCache _cache;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
@@ -32,6 +41,9 @@ public class AuthController : ControllerBase
         ApplicationDbContext db,
         ICurrentUserService currentUser,
         IAppStatsService stats,
+        IEmailService email,
+        IMemoryCache cache,
+        IConfiguration configuration,
         ILogger<AuthController> logger)
     {
         _userManager = userManager;
@@ -39,6 +51,9 @@ public class AuthController : ControllerBase
         _db = db;
         _currentUser = currentUser;
         _stats = stats;
+        _email = email;
+        _cache = cache;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -188,6 +203,97 @@ public class AuthController : ControllerBase
         return Ok(new MessageResponse("התנתקת בהצלחה"));
     }
 
+    /// <summary>
+    /// שליחת מייל לאיפוס סיסמה.
+    /// התשובה זהה תמיד — 200 ואותה הודעה — בין אם הכתובת רשומה ובין אם לא,
+    /// אחרת אפשר היה לגלות בניסוי וטעייה אילו כתובות מייל קיימות במערכת.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    {
+        var email = request.Email.Trim();
+
+        // ההודעה הגנרית היא התשובה היחידה שיוצאת מכאן, בכל אחד מהמסלולים.
+        var genericResponse = Ok(new MessageResponse(
+            "אם הכתובת קיימת במערכת, נשלח אליה מייל לאיפוס סיסמה"));
+
+        _logger.LogInformation("בקשת איפוס סיסמה עבור {Email} בשעה {At:o}", email, DateTime.UtcNow);
+
+        // המונה עולה על כל בקשה, גם לכתובת שאינה רשומה — אחרת עצם החסימה הייתה
+        // מסגירה שהכתובת קיימת.
+        if (!TryCountResetRequest(email))
+        {
+            _logger.LogWarning("בקשת איפוס סיסמה נחסמה בהגבלת קצב עבור {Email}", email);
+            return genericResponse;
+        }
+
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user is null)
+            return genericResponse;
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+        var clientBaseUrl = (_configuration["ClientBaseUrl"] ?? "http://localhost:5173").TrimEnd('/');
+        var resetLink = $"{clientBaseUrl}/reset-password" +
+                        $"?email={Uri.EscapeDataString(user.Email!)}" +
+                        $"&token={Uri.EscapeDataString(token)}";
+
+        try
+        {
+            await _email.SendPasswordResetAsync(user.Email!, user.FullName, resetLink);
+        }
+        catch (Exception ex)
+        {
+            // כישלון שליחה נרשם ללוג בלבד. תשובת שגיאה כאן הייתה שוברת את הכלל
+            // שהתשובה זהה תמיד, ומסגירה שהכתובת רשומה.
+            _logger.LogError(ex, "שליחת מייל איפוס סיסמה נכשלה עבור {Email}", email);
+        }
+
+        return genericResponse;
+    }
+
+    /// <summary>
+    /// קביעת סיסמה חדשה מתוך הקישור שנשלח במייל.
+    /// ResetPasswordAsync מחליף גם את ה-SecurityStamp, ולכן סשנים ועוגיות קיימים מתבטלים.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+        var email = request.Email.Trim();
+
+        _logger.LogInformation("בקשת החלפת סיסמה עבור {Email} בשעה {At:o}", email, DateTime.UtcNow);
+
+        // הודעה אחת לכל סיבת כישלון של הקישור — לא מפרטים אם הטוקן פג, שונה או לא קיים.
+        var invalidLink = new MessageResponse("הקישור אינו תקף או שפג תוקפו");
+
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user is null)
+            return BadRequest(invalidLink);
+
+        // בדיקת מדיניות הסיסמאות לפני האיפוס — אחרת סיסמה חלשה הייתה מוחזרת
+        // כ"קישור לא תקף", והמשתמש לא היה מבין מה לתקן.
+        var passwordError = await ValidatePasswordAsync(request.NewPassword);
+        if (passwordError is not null)
+            return BadRequest(new MessageResponse(passwordError));
+
+        var result = await _userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            // הטוקן עצמו לא נרשם ללוג — רק קודי השגיאה.
+            _logger.LogWarning("איפוס סיסמה נכשל עבור {Email}: {Errors}",
+                email, string.Join("; ", result.Errors.Select(e => e.Code)));
+            return BadRequest(invalidLink);
+        }
+
+        _logger.LogInformation("הסיסמה של {Email} אופסה בהצלחה בשעה {At:o}", email, DateTime.UtcNow);
+
+        return Ok(new MessageResponse("הסיסמה עודכנה בהצלחה. אפשר להתחבר עם הסיסמה החדשה"));
+    }
+
     /// <summary>פרטי המשתמש המחובר.</summary>
     [HttpGet("me")]
     [Authorize]
@@ -238,6 +344,32 @@ public class AuthController : ControllerBase
         return null;
     }
 
+    /// <summary>
+    /// מונה בקשות איפוס לאותה כתובת מייל ב-IMemoryCache.
+    /// מחזיר false כשהמכסה בחלון הזמן נוצלה.
+    /// </summary>
+    private bool TryCountResetRequest(string email)
+    {
+        var key = $"pwreset:{email.ToLowerInvariant()}";
+
+        // הרשומה נוצרת פעם אחת ופגה שעה אחרי הבקשה הראשונה. עדכון המונה נעשה
+        // בתוך האובייקט ולא ב-Set חוזר, כדי שהחלון לא יתחיל מחדש בכל בקשה.
+        var attempts = _cache.GetOrCreate(key, entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = ResetRequestWindow;
+            return new ResetAttempts();
+        })!;
+
+        lock (attempts)
+        {
+            if (attempts.Count >= MaxResetRequestsPerWindow)
+                return false;
+
+            attempts.Count++;
+            return true;
+        }
+    }
+
     private async Task<string> GenerateUniqueInviteCodeAsync()
     {
         while (true)
@@ -259,4 +391,10 @@ public class AuthController : ControllerBase
     private static HouseholdDto? ToHouseholdDto(Household? household) => household is null
         ? null
         : new HouseholdDto(household.Id.ToString(), household.Name, household.InviteCode);
+
+    /// <summary>מונה בקשות האיפוס של כתובת מייל אחת, כפי שהוא נשמר ב-cache.</summary>
+    private sealed class ResetAttempts
+    {
+        public int Count { get; set; }
+    }
 }
