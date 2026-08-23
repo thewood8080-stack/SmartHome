@@ -1,6 +1,7 @@
 // דף תקציב
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
+import { useSocketEvent } from '../../hooks/useSocket';
 
 interface BudgetRecord {
   _id: string;
@@ -30,6 +31,35 @@ export default function BudgetPage() {
   }, [month, year]);
 
   useEffect(() => { load(); }, [load]);
+
+  // עדכון בזמן אמת
+  // בשונה משאר הדפים, כאן מוצג חודש אחד בלבד — ולכן רשומה שאינה בחודש הנבחר
+  // לא נכנסת לרשימה, ורשומה שעודכנה ויצאה מהחודש מוסרת ממנה.
+  const inSelectedMonth = (d: string) => {
+    const dt = new Date(d);
+    return dt.getMonth() + 1 === month && dt.getFullYear() === year;
+  };
+
+  // השרת מחזיר את הרשימה ממוינת לפי תאריך יורד, ולכן גם ההוספה החיה שומרת על הסדר.
+  const byDateDesc = (a: BudgetRecord, b: BudgetRecord) =>
+    new Date(b.date).getTime() - new Date(a.date).getTime();
+
+  // המוסיף מקבל את הרשומה גם מהשידור וגם מ-load שאחרי השמירה, ולכן ההוספה
+  // מדלגת על רשומה שכבר ברשימה — אחרת היו נוצרות שתי שורות עם אותו _id.
+  useSocketEvent<BudgetRecord>('budget:created', (r) =>
+    setRecords((prev) =>
+      !inSelectedMonth(r.date) || prev.some((x) => x._id === r._id)
+        ? prev
+        : [r, ...prev].sort(byDateDesc)));
+
+  useSocketEvent<BudgetRecord>('budget:updated', (r) =>
+    setRecords((prev) => {
+      const without = prev.filter((x) => x._id !== r._id);
+      return inSelectedMonth(r.date) ? [r, ...without].sort(byDateDesc) : without;
+    }));
+
+  useSocketEvent<{ id: string }>('budget:deleted', ({ id }) =>
+    setRecords((prev) => prev.filter((x) => x._id !== id)));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

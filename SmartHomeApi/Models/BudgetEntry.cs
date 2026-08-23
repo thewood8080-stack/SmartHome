@@ -5,6 +5,9 @@ public class BudgetEntry : IHouseholdOwned
 {
     public int Id { get; set; }
 
+    /// <summary>שם התנועה כפי שהוא מוצג בשורה הראשית ברשימה, למשל "משכורת" או "סופר".</summary>
+    public string Title { get; set; } = string.Empty;
+
     public decimal Amount { get; set; }
 
     public BudgetType Type { get; set; }

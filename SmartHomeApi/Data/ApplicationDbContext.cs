@@ -264,6 +264,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             // SQLite מאחסן decimal כטקסט; ציון סוג מפורש מונע את אזהרת EF על דיוק.
             e.Property(b => b.Amount).HasColumnType("decimal(18,2)");
+            e.Property(b => b.Title).IsRequired().HasMaxLength(200);
             e.Property(b => b.Category).IsRequired().HasMaxLength(50);
             e.Property(b => b.Note).HasMaxLength(500);
 
