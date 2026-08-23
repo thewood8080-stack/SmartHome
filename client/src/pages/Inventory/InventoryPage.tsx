@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useSocketEvent } from '../../hooks/useSocket';
 
 interface InventoryItem {
   _id: string;
@@ -29,6 +30,20 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // עדכון בזמן אמת
+  // המוסיף מקבל את הפריט גם מהשידור וגם מ-load שאחרי השמירה, ולכן ההוספה
+  // מדלגת על פריט שכבר ברשימה — אחרת היו נוצרות שתי שורות עם אותו _id.
+  // המיון לפי שם נשמר כדי שפריט משידור ייכנס למקומו ולא לסוף הרשימה,
+  // בדיוק כמו הסדר שהשרת מחזיר ב-GET.
+  useSocketEvent<InventoryItem>('inventory:created', (item) =>
+    setItems((prev) => prev.some((x) => x._id === item._id)
+      ? prev
+      : [...prev, item].sort((a, b) => a.name.localeCompare(b.name, 'he'))));
+  useSocketEvent<InventoryItem>('inventory:updated', (item) =>
+    setItems((prev) => prev.map((x) => x._id === item._id ? item : x)));
+  useSocketEvent<{ id: string }>('inventory:deleted', ({ id }) =>
+    setItems((prev) => prev.filter((x) => x._id !== id)));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

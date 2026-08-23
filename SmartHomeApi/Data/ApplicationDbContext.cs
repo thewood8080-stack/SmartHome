@@ -287,6 +287,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<InventoryItem>(e =>
         {
             e.Property(i => i.Name).IsRequired().HasMaxLength(200);
+            e.Property(i => i.Category).IsRequired().HasMaxLength(50);
             e.Property(i => i.Unit).HasMaxLength(30);
             e.Property(i => i.Location).HasMaxLength(100);
             e.Property(i => i.Note).HasMaxLength(500);

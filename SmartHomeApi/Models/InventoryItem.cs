@@ -7,6 +7,9 @@ public class InventoryItem : IHouseholdOwned
 
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>הקטגוריה שלפיה הרשימה מקובצת בממשק, למשל "מזון" או "ניקיון".</summary>
+    public string Category { get; set; } = string.Empty;
+
     public int Quantity { get; set; } = 0;
 
     public string? Unit { get; set; }
