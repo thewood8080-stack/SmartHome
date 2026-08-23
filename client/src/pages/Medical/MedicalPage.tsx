@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useSocketEvent } from '../../hooks/useSocket';
 
 interface MedRecord {
   _id: string;
@@ -35,6 +36,21 @@ export default function MedicalPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // עדכון בזמן אמת
+  // המוסיף מקבל את הרשומה גם מהשידור וגם מ-load שאחרי השמירה, ולכן ההוספה
+  // מדלגת על רשומה שכבר ברשימה — אחרת היו נוצרות שתי שורות עם אותו _id.
+  // המיון לפי תאריך יורד נשמר כדי שרשומה משידור תיכנס למקומה ולא לסוף הרשימה,
+  // בדיוק כמו הסדר שהשרת מחזיר ב-GET.
+  useSocketEvent<MedRecord>('medical:created', (rec) =>
+    setRecords((prev) => prev.some((r) => r._id === rec._id)
+      ? prev
+      : [...prev, rec].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+  useSocketEvent<MedRecord>('medical:updated', (rec) =>
+    setRecords((prev) => prev.map((r) => r._id === rec._id ? rec : r)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+  useSocketEvent<{ id: string }>('medical:deleted', ({ id }) =>
+    setRecords((prev) => prev.filter((r) => r._id !== id)));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
