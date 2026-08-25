@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useSocketEvent } from '../../hooks/useSocket';
 
 interface Vehicle {
   _id: string;
@@ -15,6 +16,19 @@ interface Vehicle {
   fuelType?: string;
   notes?: string;
 }
+
+// אותו סדר שהשרת מחזיר ב-GET: הטסט הקרוב ביותר ראשון,
+// רכבים בלי תאריך טסט בסוף, ובתוך כל קבוצה לפי שם.
+const sortVehicles = (list: Vehicle[]): Vehicle[] =>
+  [...list].sort((a, b) => {
+    if (a.test && !b.test) return -1;
+    if (!a.test && b.test) return 1;
+    if (a.test && b.test) {
+      const diff = new Date(a.test).getTime() - new Date(b.test).getTime();
+      if (diff !== 0) return diff;
+    }
+    return a.name.localeCompare(b.name, 'he');
+  });
 
 export default function VehiclePage() {
   const { user } = useAuthStore();
@@ -30,6 +44,17 @@ export default function VehiclePage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // המיון של השרת נשמר גם כאן, כדי שרכב שמגיע משידור ייכנס למקומו ולא לסוף
+  // הרשימה. בעדכון ממיינים מחדש כי שינוי תאריך הטסט מזיז את הרכב במיון.
+  useSocketEvent<Vehicle>('vehicle:created', (vehicle) =>
+    setVehicles((prev) => prev.some((v) => v._id === vehicle._id)
+      ? prev
+      : sortVehicles([...prev, vehicle])));
+  useSocketEvent<Vehicle>('vehicle:updated', (vehicle) =>
+    setVehicles((prev) => sortVehicles(prev.map((v) => v._id === vehicle._id ? vehicle : v))));
+  useSocketEvent<{ id: string }>('vehicle:deleted', ({ id }) =>
+    setVehicles((prev) => prev.filter((v) => v._id !== id)));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
