@@ -23,7 +23,7 @@
 **היסטוריית commits — קיימים 11 בסך הכל (לא 15):**
 
 ```
-4a10b2e עדכון מודולים: Admin, Auth, Gamification, socket, authStore + העברת CLAUDE.md לשורש
+4a10b2e עדכון מודולים: Admin, Auth, Gamification, socket, authStore + העברת מפרט הפרויקט לשורש
 ed8234d הוסף עמוד מדריך שימוש
 38aa060 הוסף מערכת בתים — כל משפחה מבודדת לחלוטין
 a998b7a התאמה למובייל — bottom nav + responsive layout
@@ -99,7 +99,7 @@ server/src/
 
 ### אימות — **לא Google OAuth**
 
-המימוש בפועל **סוטה מהמפרט ב-CLAUDE.md**:
+המימוש בפועל **סוטה מהמפרט ב-PROJECT_SPEC.md**:
 
 - **בפועל:** Email + Password עם `bcryptjs` (hash, salt=10) + **JWT** (`jsonwebtoken`, תוקף 30 יום).
 - `requireAuth` מאמת `Authorization: Bearer <token>`, מוודא `user.approved === true`, ומזריק `userId` + `householdId` ל-request.
@@ -122,7 +122,7 @@ server/src/
 
 **לא משדרים real-time:** `budget`, `events`, `gifts`, `medical`, `vehicles`, `inventory`, `shortcuts`, `users`.
 עדכון של בן משפחה אחד באחד המודולים האלה **לא יופיע אצל האחרים** עד רענון/ניווט מחדש —
-סטייה מ"חוק הברזל" שמוגדר ב-CLAUDE.md.
+סטייה מ"חוק הברזל" שמוגדר ב-PROJECT_SPEC.md.
 
 ---
 
@@ -202,7 +202,7 @@ Build: `vite@6` + `typescript@5.7`
 | RTL מלא + פלטת צבעים | ✅ תואם מפרט |
 | TypeScript strict, ללא `any` | ✅ לא נמצא `any` |
 
-### פערים מול המפרט ב-CLAUDE.md
+### פערים מול המפרט ב-PROJECT_SPEC.md
 
 | # | פער | חומרה |
 |---|---|---|
