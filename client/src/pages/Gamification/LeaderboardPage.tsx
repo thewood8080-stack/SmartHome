@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useSocketEvent } from '../../hooks/useSocket';
 
 interface LeaderUser {
   _id: string;
@@ -10,6 +11,11 @@ interface LeaderUser {
   role: string;
   photoURL?: string;
 }
+
+// אותו סדר שהשרת מחזיר — נקודות יורד, ובשוויון לפי שם.
+// חובה למיין מחדש אחרי עדכון נקודות, אחרת הפודיום יציג את המובילים הישנים.
+const sortLeaders = (users: LeaderUser[]): LeaderUser[] =>
+  [...users].sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
 
 const BADGES = [
   { minPoints: 100, icon: '🥉', label: 'מתחיל' },
@@ -29,6 +35,12 @@ export default function LeaderboardPage() {
       setLoading(false);
     });
   }, []);
+
+  // עדכון בזמן אמת — משימה שבוצעה אצל בן בית אחר מזיזה את הלוח מיידית.
+  useSocketEvent<{ id: string; points: number }>('gamification:points-updated', ({ id, points }) =>
+    setLeaders((prev) => sortLeaders(prev.map((u) => u._id === id ? { ...u, points } : u))));
+  useSocketEvent<unknown>('gamification:reset', () =>
+    setLeaders((prev) => sortLeaders(prev.map((u) => ({ ...u, points: 0 })))));
 
   const resetPoints = async () => {
     if (!confirm('לאפס נקודות לכולם? הפעולה אינה הפיכה.')) return;

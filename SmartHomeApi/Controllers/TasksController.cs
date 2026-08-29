@@ -196,6 +196,9 @@ public class TasksController : ControllerBase
         var wasDone = task.Status == HouseTaskStatus.Done;
         task.Status = newStatus;
 
+        // מי קיבל נקודות בקריאה הזו וכמה יש לו עכשיו — לשידור לוח המובילים בהמשך.
+        PointsUpdatedDto? pointsUpdate = null;
+
         if (newStatus == HouseTaskStatus.Done)
         {
             // רק במעבר אמיתי ל'בוצע' — סימון חוזר לא מזכה בנקודות פעמיים.
@@ -205,7 +208,10 @@ public class TasksController : ControllerBase
 
                 var performer = await _db.Users.FirstOrDefaultAsync(u => u.Id == _currentUser.UserId);
                 if (performer is not null)
+                {
                     performer.Points += task.Points;
+                    pointsUpdate = new PointsUpdatedDto(performer.Id, performer.Points);
+                }
             }
         }
         else
@@ -221,6 +227,12 @@ public class TasksController : ControllerBase
 
         // כאן משתנות גם הנקודות של המבצע, ולכן חשוב שכל בני הבית יקבלו את העדכון.
         await _notifier.NotifyHouseholdAsync(householdId.Value, "task:updated", dto);
+
+        // שידור נפרד ללוח המובילים — רק כשבאמת ניתנו נקודות בקריאה הזו,
+        // כדי שלוח פתוח בטאב אחר יתעדכן מיידית בלי רענון.
+        if (pointsUpdate is not null)
+            await _notifier.NotifyHouseholdAsync(
+                householdId.Value, "gamification:points-updated", pointsUpdate);
 
         return Ok(dto);
     }
