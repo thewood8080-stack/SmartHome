@@ -13,21 +13,49 @@ interface Stats {
   inventory: number;
 }
 
+type NotificationSeverity = 'info' | 'warning' | 'urgent';
+
+interface AppNotification {
+  type: string;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  relatedId: string;
+  date: string;
+}
+
+// אייקון לפי המודול שממנו נגזרה ההתראה, באותם סמלים של קיצורי הדרך למטה.
+const NOTIFICATION_ICONS: Record<string, string> = {
+  event: '📅',
+  gift: '🎁',
+  inventory: '📦',
+  medical: '🏥',
+  vehicle: '🚗',
+};
+
+const SEVERITY_COLORS: Record<NotificationSeverity, string> = {
+  urgent: 'var(--color-danger)',
+  warning: 'var(--color-secondary)',
+  info: 'var(--color-primary)',
+};
+
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({ tasks: 0, tasksDone: 0, shopping: 0, shoppingBought: 0, events: 0, inventory: 0 });
   const [leaderboard, setLeaderboard] = useState<{ _id: string; name: string; points: number; photoURL?: string }[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [tasks, shopping, events, inventory, users] = await Promise.all([
+        const [tasks, shopping, events, inventory, users, alerts] = await Promise.all([
           api.get('/tasks'),
           api.get('/shopping'),
           api.get('/events'),
           api.get('/inventory'),
           api.get('/users/leaderboard'),
+          api.get('/notifications'),
         ]);
         setStats({
           tasks: tasks.data.length,
@@ -38,6 +66,8 @@ export default function DashboardPage() {
           inventory: inventory.data.length,
         });
         setLeaderboard(users.data.slice(0, 3));
+        // השרת כבר מחזיר ממוין לפי קרבה, ולכן חמש הראשונות הן הדחופות ביותר.
+        setNotifications(alerts.data.slice(0, 5));
       } catch { /* שגיאה שקטה */ }
     };
     load();
@@ -68,6 +98,24 @@ export default function DashboardPage() {
           <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>נקודות</span>
         </div>
       </div>
+
+      {/* התראות — מחושבות בשרת בכל טעינה, ולכן אין כאן סימון "נקרא" */}
+      {notifications.length > 0 && (
+        <>
+          <h2 style={styles.sectionTitle}>🔔 דורש תשומת לב</h2>
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
+            {notifications.map((n) => (
+              <div key={`${n.type}-${n.relatedId}-${n.date}`} style={styles.notificationRow}>
+                <span style={{ fontSize: '1.3rem' }}>{NOTIFICATION_ICONS[n.type] ?? '🔔'}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, color: SEVERITY_COLORS[n.severity] }}>{n.title}</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--color-gray)' }}>{n.message}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* סטטיסטיקות */}
       <div className="grid-3" style={{ marginBottom: '1.5rem' }}>
@@ -170,4 +218,11 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: '1px solid var(--color-light)',
   },
   rank: { fontSize: '1.3rem', width: '2rem' },
+  notificationRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '0.6rem 0',
+    borderBottom: '1px solid var(--color-light)',
+  },
 };
