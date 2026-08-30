@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -37,6 +38,12 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 builder.Services.Configure<DataProtectionTokenProviderOptions>(o =>
     o.TokenLifespan = TimeSpan.FromMinutes(30));
 
+// בפרודקשן ה-client וה-API יושבים על שני דומיינים נפרדים, ומבחינת הדפדפן זו
+// בקשה cross-site. עוגייה עם SameSite=Lax פשוט לא תישלח, וההתחברות תיכשל בלי
+// שום שגיאה מובנת. SameSite=None מחייב Secure, ולכן השניים הולכים יחד.
+// בפיתוח נשארת ברירת המחדל, כי localhost רץ על http ועוגיית Secure לא תיקלט בו.
+var crossSiteCookies = !builder.Environment.IsDevelopment();
+
 // זה API — מחזירים קודי סטטוס במקום להפנות לדפי התחברות שלא קיימים.
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -44,6 +51,12 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.IsEssential = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(2);
     options.SlidingExpiration = true;
+
+    if (crossSiteCookies)
+    {
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
     // גם כאן הגוף חייב להיות { "message": "..." } — ה-client קורא רק את השדה הזה.
     options.Events.OnRedirectToLogin = ctx =>
         WriteMessageAsync(ctx.Response, StatusCodes.Status401Unauthorized, "נדרשת התחברות");
@@ -95,11 +108,28 @@ builder.Services.AddSession(o =>
     o.IdleTimeout = TimeSpan.FromHours(2);
     o.Cookie.HttpOnly = true;
     o.Cookie.IsEssential = true;
+
+    // אותו שיקול כמו בעוגיית ההזדהות — בלי זה ה-Session לא שורד cross-site.
+    if (crossSiteCookies)
+    {
+        o.Cookie.SameSite = SameSiteMode.None;
+        o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
 });
 
 // --- CORS — חייב AllowCredentials בשביל עוגיית ה-Session ---
+// כתובת הפיתוח תמיד כלולה; כתובות נוספות מגיעות מקונפיגורציה, כך שאפשר
+// להוסיף את כתובת הפרודקשן דרך משתנה סביבה (Cors__AllowedOrigins__0)
+// בלי לגעת בקוד. סלאש מיותר בסוף הכתובת שובר את ההשוואה של הדפדפן, ולכן נחתך.
+var allowedOrigins = new[] { "http://localhost:5173" }
+    .Concat(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Select(origin => origin.Trim().TrimEnd('/'))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(o => o.AddPolicy("Client", p => p
-    .WithOrigins("http://localhost:5173")
+    .WithOrigins(allowedOrigins)
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 builder.Services.AddHttpContextAccessor();
@@ -132,6 +162,19 @@ builder.Services.AddSwaggerGen(o => o.SwaggerDoc("v1", new OpenApiInfo
 
 var app = builder.Build();
 
+// שרת האירוח מסיים את ה-HTTPS בפרוקסי ומעביר פנימה HTTP רגיל. בלי לקרוא את
+// כותרות ה-X-Forwarded, ההפניה ל-HTTPS תראה בקשת http ותפנה שוב ושוב — לולאה.
+// ברירת המחדל מכבדת את הכותרות רק מפרוקסי loopback, ופרוקסי הענן אינו כזה,
+// ולכן רשימות הפרוקסי הידועים מנוקות. הכותרות מגיעות מהפרוקסי בלבד; הפורט
+// הפנימי לא חשוף לאינטרנט.
+var forwardedHeaders = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeaders.KnownNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeaders);
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -155,5 +198,14 @@ app.MapControllers();
 app.MapHub<SmartHomeHub>("/hubs/smarthome");
 
 await DbSeeder.SeedAsync(app.Services);
+
+// שרת האירוח מזריק את הפורט להאזנה במשתנה סביבה, וחייבים להאזין עליו על כל
+// הממשקים ולא רק על localhost, אחרת בדיקת הזמינות נכשלת וה-deploy נופל.
+// מקומית המשתנה לא מוגדר, והפורטים נשארים אלה שב-launchSettings.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    app.Urls.Add($"http://0.0.0.0:{port}");
+}
 
 app.Run();
