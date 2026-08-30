@@ -37,6 +37,36 @@ public class SmtpEmailService : IEmailService
             TextBody = BuildTextBody(toName, resetLink)
         }.ToMessageBody();
 
+        await SendAsync(settings, message);
+
+        // הכתובת נרשמת ללוג, הקישור והטוקן לא.
+        _logger.LogInformation("נשלח מייל איפוס סיסמה אל {Email}", toEmail);
+    }
+
+    public async Task SendNewItemNotificationAsync(string toEmail, string toName, NewItemNotification notification)
+    {
+        var settings = ReadSettings();
+
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(settings.FromName, settings.From));
+        message.To.Add(new MailboxAddress(toName, toEmail));
+        message.Subject = $"{notification.Kind} — SmartHome";
+
+        message.Body = new BodyBuilder
+        {
+            HtmlBody = BuildNotificationHtmlBody(toName, notification),
+            // גרסת טקסט לקוראי מייל שלא מציגים HTML.
+            TextBody = BuildNotificationTextBody(toName, notification)
+        }.ToMessageBody();
+
+        await SendAsync(settings, message);
+
+        _logger.LogInformation("נשלחה התראת מייל על {Kind} אל {Email}", notification.Kind, toEmail);
+    }
+
+    /// <summary>ההתחברות והשליחה עצמן — משותפות לכל סוגי המיילים.</summary>
+    private static async Task SendAsync(EmailSettings settings, MimeMessage message)
+    {
         using var client = new SmtpClient();
 
         try
@@ -51,9 +81,6 @@ public class SmtpEmailService : IEmailService
             if (client.IsConnected)
                 await client.DisconnectAsync(true);
         }
-
-        // הכתובת נרשמת ללוג, הקישור והטוקן לא.
-        _logger.LogInformation("נשלח מייל איפוס סיסמה אל {Email}", toEmail);
     }
 
     /// <summary>
@@ -140,6 +167,69 @@ public class SmtpEmailService : IEmailService
 
         SmartHome
         """;
+
+    /// <summary>
+    /// גוף התראת הפריט החדש — עברית, RTL, בצבעי המערכת.
+    /// כותרת הפריט ושמות המשתמשים הם קלט חופשי, ולכן הם מקודדים לפני ההשתלה ב-HTML.
+    /// </summary>
+    private static string BuildNotificationHtmlBody(string name, NewItemNotification notification)
+    {
+        var kind = Encode(notification.Kind);
+        var itemTitle = Encode(notification.ItemTitle);
+        var createdBy = Encode(notification.CreatedByName);
+
+        var detailsRow = string.IsNullOrWhiteSpace(notification.Details)
+            ? string.Empty
+            : $"""
+               <p style="color:#2C3E50;font-size:14px;margin:0 0 6px;">{Encode(notification.Details)}</p>
+               """;
+
+        return $"""
+            <div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;background:#F8F6F0;padding:24px;">
+              <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:28px;">
+                <h1 style="color:#1E3A5F;font-size:22px;margin:0 0 4px;">SmartHome</h1>
+                <p style="color:#2C3E50;font-size:15px;margin:0 0 20px;">{kind}</p>
+
+                <p style="color:#2C3E50;font-size:15px;line-height:1.7;margin:0 0 14px;">
+                  שלום {Encode(name)},<br />
+                  {kind} ברשימות הבית.
+                </p>
+
+                <div style="background:#F8F6F0;border-radius:10px;padding:16px;">
+                  <p style="color:#1E3A5F;font-size:17px;font-weight:bold;margin:0 0 6px;">{itemTitle}</p>
+                  {detailsRow}
+                  <p style="color:#7F8C8D;font-size:13px;margin:0;">מאת {createdBy}</p>
+                </div>
+
+                <p style="color:#7F8C8D;font-size:12px;line-height:1.7;margin-top:20px;
+                          border-top:1px solid #F8F6F0;padding-top:14px;">
+                  קיבלת את ההודעה הזו כי מי שהוסיף את הפריט ביקש לעדכן את בני הבית.
+                </p>
+              </div>
+            </div>
+            """;
+    }
+
+    private static string BuildNotificationTextBody(string name, NewItemNotification notification)
+    {
+        var details = string.IsNullOrWhiteSpace(notification.Details)
+            ? string.Empty
+            : $"{notification.Details}{Environment.NewLine}";
+
+        return $"""
+            שלום {name},
+
+            {notification.Kind} ברשימות הבית:
+
+            {notification.ItemTitle}
+            {details}מאת {notification.CreatedByName}
+
+            SmartHome
+            """;
+    }
+
+    /// <summary>קידוד HTML לקלט חופשי — מונע שבירה של גוף המייל.</summary>
+    private static string Encode(string? value) => System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
 
     /// <summary>הגדרות השליחה אחרי אימות — נשארות בזיכרון הבקשה בלבד.</summary>
     private record EmailSettings(

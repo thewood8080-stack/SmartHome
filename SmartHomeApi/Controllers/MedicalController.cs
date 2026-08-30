@@ -26,15 +26,21 @@ public class MedicalController : ControllerBase
     private readonly ApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IRealtimeNotifier _notifier;
+    private readonly IEmailService _email;
+    private readonly ILogger<MedicalController> _logger;
 
     public MedicalController(
         ApplicationDbContext db,
         ICurrentUserService currentUser,
-        IRealtimeNotifier notifier)
+        IRealtimeNotifier notifier,
+        IEmailService email,
+        ILogger<MedicalController> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _notifier = notifier;
+        _email = email;
+        _logger = logger;
     }
 
     /// <summary>רשומות התיק הרפואי של הבית, מהאחרונה לישנה.</summary>
@@ -94,6 +100,14 @@ public class MedicalController : ControllerBase
         var dto = MedicalMapping.ToDto(created);
 
         await _notifier.NotifyHouseholdAsync(householdId.Value, "medical:created", dto);
+
+        // רק אם המשתמש סימן את התיבה בטופס. השמירה כבר הסתיימה בהצלחה בשלב הזה.
+        if (request.SendEmailNotification)
+            await SendCreationEmailsAsync(householdId.Value, new NewItemNotification(
+                "תור רפואי חדש",
+                created.Title,
+                created.AddedBy?.FullName ?? _currentUser.FullName ?? "בן בית",
+                BuildDetailsLine(created)));
 
         return StatusCode(StatusCodes.Status201Created, dto);
     }
@@ -183,6 +197,62 @@ public class MedicalController : ControllerBase
     private IQueryable<MedicalRecord> BaseQuery() => _db.MedicalRecords
         .Include(m => m.Member)
         .Include(m => m.AddedBy);
+
+    /// <summary>
+    /// שולח את התראת המייל לכל בני הבית חוץ מהמוסיף עצמו.
+    /// כישלון שליחה נרשם ללוג בלבד ולא מפיל את הוספת הרשומה — אותו דפוס
+    /// כמו מייל איפוס הסיסמה ב-AuthController.
+    /// </summary>
+    private async Task SendCreationEmailsAsync(int householdId, NewItemNotification notification)
+    {
+        var creatorId = _currentUser.UserId;
+
+        // ApplicationUser אינו נכלל בפילטר הגלובלי, ולכן הסינון לפי משק בית נעשה כאן במפורש.
+        var recipients = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.HouseholdId == householdId
+                        && u.Id != creatorId
+                        && u.Email != null
+                        && u.Email != string.Empty)
+            .Select(u => new { u.Email, u.FullName })
+            .ToListAsync();
+
+        foreach (var recipient in recipients)
+        {
+            try
+            {
+                await _email.SendNewItemNotificationAsync(recipient.Email!, recipient.FullName, notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "שליחת התראת מייל על תור רפואי חדש נכשלה עבור {Email}", recipient.Email);
+            }
+        }
+    }
+
+    /// <summary>שורת הפירוט במייל — סוג הרשומה, התאריך, והתור הבא אם נקבע.</summary>
+    private static string BuildDetailsLine(MedicalRecord record)
+    {
+        var parts = new List<string>
+        {
+            $"סוג: {TypeLabel(record.Type)}",
+            $"תאריך: {record.Date:dd/MM/yyyy}"
+        };
+
+        if (record.NextAppointment is not null)
+            parts.Add($"תור הבא: {record.NextAppointment.Value:dd/MM/yyyy}");
+
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>שם הסוג בעברית למייל בלבד. ה-client מתרגם בעצמו את המחרוזת שה-API מחזיר.</summary>
+    private static string TypeLabel(MedicalRecordType type) => type switch
+    {
+        MedicalRecordType.Appointment => "תור לרופא",
+        MedicalRecordType.Medication => "תרופה",
+        MedicalRecordType.Vaccine => "חיסון",
+        _ => "הערה"
+    };
 
     /// <summary>
     /// מוודא שבן המשפחה שנבחר הוא חבר באותו משק בית.

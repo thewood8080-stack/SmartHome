@@ -20,7 +20,7 @@ export default function ShoppingPage() {
   const { user } = useAuthStore();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name: '', quantity: 1, unit: '', category: '', urgent: false });
+  const [form, setForm] = useState({ name: '', quantity: 1, unit: '', category: '', urgent: false, sendEmailNotification: false });
   const [showForm, setShowForm] = useState(false);
 
   const load = useCallback(async () => {
@@ -39,7 +39,7 @@ export default function ShoppingPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     await api.post('/shopping', form);
-    setForm({ name: '', quantity: 1, unit: '', category: '', urgent: false });
+    setForm({ name: '', quantity: 1, unit: '', category: '', urgent: false, sendEmailNotification: false });
     setShowForm(false);
   };
 
@@ -99,6 +99,15 @@ export default function ShoppingPage() {
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', cursor: 'pointer' }}>
             <input type="checkbox" checked={form.urgent} onChange={(e) => setForm({ ...form, urgent: e.target.checked })} style={{ width: 'auto' }} />
             <span style={{ fontWeight: 600 }}>⚡ דחוף</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.sendEmailNotification}
+              onChange={(e) => setForm({ ...form, sendEmailNotification: e.target.checked })}
+              style={{ width: 'auto' }}
+            />
+            <span style={{ fontWeight: 600 }}>📧 שלח התראת מייל לבני הבית</span>
           </label>
           <button type="submit" className="btn btn-primary">הוסף</button>
         </form>

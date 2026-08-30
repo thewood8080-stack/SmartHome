@@ -44,6 +44,12 @@ public class CreateTaskRequest
 
     /// <summary>ה-client שולח מחרוזת ריקה כשלא נבחר תאריך.</summary>
     public string? DueDate { get; set; }
+
+    /// <summary>
+    /// סימון ה-checkbox בטופס — האם לשלוח התראת מייל לשאר בני הבית.
+    /// נקרא ביצירה בלבד; בעדכון השדה מתקבל ומתעלמים ממנו.
+    /// </summary>
+    public bool SendEmailNotification { get; set; }
 }
 
 /// <summary>עדכון מלא של משימה. אותם שדות כמו ביצירה.</summary>

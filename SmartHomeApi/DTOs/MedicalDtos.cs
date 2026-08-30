@@ -63,6 +63,12 @@ public class CreateMedicalRecordRequest
     /// אותה תבנית בדיוק כמו CreateTaskRequest.DueDate.
     /// </summary>
     public string? NextAppointment { get; set; }
+
+    /// <summary>
+    /// סימון ה-checkbox בטופס — האם לשלוח התראת מייל לשאר בני הבית.
+    /// נקרא ביצירה בלבד; בעדכון השדה מתקבל ומתעלמים ממנו.
+    /// </summary>
+    public bool SendEmailNotification { get; set; }
 }
 
 /// <summary>עדכון מלא של רשומה. אותם שדות כמו ביצירה.</summary>

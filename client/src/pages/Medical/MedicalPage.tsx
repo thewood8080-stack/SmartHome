@@ -26,7 +26,7 @@ export default function MedicalPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedMember, setSelectedMember] = useState('');
-  const [form, setForm] = useState({ memberId: '', type: 'appointment', title: '', date: '', doctor: '', clinic: '', notes: '', nextAppointment: '' });
+  const [form, setForm] = useState({ memberId: '', type: 'appointment', title: '', date: '', doctor: '', clinic: '', notes: '', nextAppointment: '', sendEmailNotification: false });
 
   const load = useCallback(async () => {
     const [recs, us] = await Promise.all([api.get('/medical'), api.get('/users')]);
@@ -55,7 +55,7 @@ export default function MedicalPage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     await api.post('/medical', form);
-    setForm({ memberId: '', type: 'appointment', title: '', date: '', doctor: '', clinic: '', notes: '', nextAppointment: '' });
+    setForm({ memberId: '', type: 'appointment', title: '', date: '', doctor: '', clinic: '', notes: '', nextAppointment: '', sendEmailNotification: false });
     setShowForm(false);
     load();
   };
@@ -132,6 +132,15 @@ export default function MedicalPage() {
             <label>הערות</label>
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.sendEmailNotification}
+              onChange={(e) => setForm({ ...form, sendEmailNotification: e.target.checked })}
+              style={{ width: 'auto' }}
+            />
+            <span style={{ fontWeight: 600 }}>📧 שלח התראת מייל לבני הבית</span>
+          </label>
           <button type="submit" className="btn btn-primary">שמור</button>
         </form>
       )}

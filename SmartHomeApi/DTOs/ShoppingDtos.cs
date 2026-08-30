@@ -45,6 +45,12 @@ public class CreateShoppingItemRequest
     /// <summary>ה-client שולח 'urgent', לא 'isUrgent'.</summary>
     [JsonPropertyName("urgent")]
     public bool IsUrgent { get; set; }
+
+    /// <summary>
+    /// סימון ה-checkbox בטופס — האם לשלוח התראת מייל לשאר בני הבית.
+    /// נקרא ביצירה בלבד; בעדכון השדה מתקבל ומתעלמים ממנו.
+    /// </summary>
+    public bool SendEmailNotification { get; set; }
 }
 
 /// <summary>עדכון מלא של פריט. אותם שדות כמו ביצירה.</summary>

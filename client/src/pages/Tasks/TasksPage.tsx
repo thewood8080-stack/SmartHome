@@ -25,7 +25,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<'all' | 'todo' | 'done'>('all');
-  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', dueDate: '' });
+  const [form, setForm] = useState({ title: '', description: '', priority: 'medium', dueDate: '', sendEmailNotification: false });
   const [users, setUsers] = useState<{ _id: string; name: string }[]>([]);
   const [assignedTo, setAssignedTo] = useState('');
 
@@ -48,7 +48,7 @@ export default function TasksPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     await api.post('/tasks', { ...form, assignedTo: assignedTo || undefined });
-    setForm({ title: '', description: '', priority: 'medium', dueDate: '' });
+    setForm({ title: '', description: '', priority: 'medium', dueDate: '', sendEmailNotification: false });
     setAssignedTo('');
     setShowForm(false);
   };
@@ -114,6 +114,15 @@ export default function TasksPage() {
             <label>תיאור</label>
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="תיאור אופציונלי" />
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.sendEmailNotification}
+              onChange={(e) => setForm({ ...form, sendEmailNotification: e.target.checked })}
+              style={{ width: 'auto' }}
+            />
+            <span style={{ fontWeight: 600 }}>📧 שלח התראת מייל לבני הבית</span>
+          </label>
           <button type="submit" className="btn btn-primary">שמור</button>
         </form>
       )}

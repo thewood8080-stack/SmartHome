@@ -25,17 +25,23 @@ public class TasksController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly IHtmlSanitizerService _sanitizer;
     private readonly IRealtimeNotifier _notifier;
+    private readonly IEmailService _email;
+    private readonly ILogger<TasksController> _logger;
 
     public TasksController(
         ApplicationDbContext db,
         ICurrentUserService currentUser,
         IHtmlSanitizerService sanitizer,
-        IRealtimeNotifier notifier)
+        IRealtimeNotifier notifier,
+        IEmailService email,
+        ILogger<TasksController> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _sanitizer = sanitizer;
         _notifier = notifier;
+        _email = email;
+        _logger = logger;
     }
 
     /// <summary>רשימת המשימות של הבית, עם סינון אופציונלי.</summary>
@@ -127,6 +133,13 @@ public class TasksController : ControllerBase
         var dto = TaskMapping.ToDto(created);
 
         await _notifier.NotifyHouseholdAsync(householdId.Value, "task:created", dto);
+
+        // רק אם המשתמש סימן את התיבה בטופס. השמירה כבר הסתיימה בהצלחה בשלב הזה.
+        if (request.SendEmailNotification)
+            await SendCreationEmailsAsync(householdId.Value, new NewItemNotification(
+                "משימה חדשה",
+                created.Title,
+                created.CreatedBy?.FullName ?? _currentUser.FullName ?? "בן בית"));
 
         return StatusCode(StatusCodes.Status201Created, dto);
     }
@@ -268,6 +281,38 @@ public class TasksController : ControllerBase
     private IQueryable<HouseTask> BaseQuery() => _db.HouseTasks
         .Include(t => t.AssignedTo)
         .Include(t => t.CreatedBy);
+
+    /// <summary>
+    /// שולח את התראת המייל לכל בני הבית חוץ מהיוצר עצמו.
+    /// כישלון שליחה נרשם ללוג בלבד ולא מפיל את יצירת המשימה — אותו דפוס
+    /// כמו מייל איפוס הסיסמה ב-AuthController.
+    /// </summary>
+    private async Task SendCreationEmailsAsync(int householdId, NewItemNotification notification)
+    {
+        var creatorId = _currentUser.UserId;
+
+        // ApplicationUser אינו נכלל בפילטר הגלובלי, ולכן הסינון לפי משק בית נעשה כאן במפורש.
+        var recipients = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.HouseholdId == householdId
+                        && u.Id != creatorId
+                        && u.Email != null
+                        && u.Email != string.Empty)
+            .Select(u => new { u.Email, u.FullName })
+            .ToListAsync();
+
+        foreach (var recipient in recipients)
+        {
+            try
+            {
+                await _email.SendNewItemNotificationAsync(recipient.Email!, recipient.FullName, notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "שליחת התראת מייל על משימה חדשה נכשלה עבור {Email}", recipient.Email);
+            }
+        }
+    }
 
     /// <summary>ה-client שולח מחרוזת ריקה כשלא נבחר תאריך.</summary>
     private static (DateTime? Value, string? Error) ParseDueDate(string? raw)

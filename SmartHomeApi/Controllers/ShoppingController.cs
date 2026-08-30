@@ -23,15 +23,21 @@ public class ShoppingController : ControllerBase
     private readonly ApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IRealtimeNotifier _notifier;
+    private readonly IEmailService _email;
+    private readonly ILogger<ShoppingController> _logger;
 
     public ShoppingController(
         ApplicationDbContext db,
         ICurrentUserService currentUser,
-        IRealtimeNotifier notifier)
+        IRealtimeNotifier notifier,
+        IEmailService email,
+        ILogger<ShoppingController> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _notifier = notifier;
+        _email = email;
+        _logger = logger;
     }
 
     /// <summary>רשימת הפריטים של הבית. החדשים למעלה — כמו סדר ההוספה בזמן אמת.</summary>
@@ -78,6 +84,13 @@ public class ShoppingController : ControllerBase
         var dto = ShoppingMapping.ToDto(created);
 
         await _notifier.NotifyHouseholdAsync(householdId.Value, "shopping:created", dto);
+
+        // רק אם המשתמש סימן את התיבה בטופס. השמירה כבר הסתיימה בהצלחה בשלב הזה.
+        if (request.SendEmailNotification)
+            await SendCreationEmailsAsync(householdId.Value, new NewItemNotification(
+                "פריט קניות חדש",
+                created.Name,
+                created.AddedBy?.FullName ?? _currentUser.FullName ?? "בן בית"));
 
         return StatusCode(StatusCodes.Status201Created, dto);
     }
@@ -205,6 +218,38 @@ public class ShoppingController : ControllerBase
     private IQueryable<ShoppingItem> BaseQuery() => _db.ShoppingItems
         .Include(i => i.AddedBy)
         .Include(i => i.BoughtBy);
+
+    /// <summary>
+    /// שולח את התראת המייל לכל בני הבית חוץ מהמוסיף עצמו.
+    /// כישלון שליחה נרשם ללוג בלבד ולא מפיל את הוספת הפריט — אותו דפוס
+    /// כמו מייל איפוס הסיסמה ב-AuthController.
+    /// </summary>
+    private async Task SendCreationEmailsAsync(int householdId, NewItemNotification notification)
+    {
+        var creatorId = _currentUser.UserId;
+
+        // ApplicationUser אינו נכלל בפילטר הגלובלי, ולכן הסינון לפי משק בית נעשה כאן במפורש.
+        var recipients = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.HouseholdId == householdId
+                        && u.Id != creatorId
+                        && u.Email != null
+                        && u.Email != string.Empty)
+            .Select(u => new { u.Email, u.FullName })
+            .ToListAsync();
+
+        foreach (var recipient in recipients)
+        {
+            try
+            {
+                await _email.SendNewItemNotificationAsync(recipient.Email!, recipient.FullName, notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "שליחת התראת מייל על פריט קניות חדש נכשלה עבור {Email}", recipient.Email);
+            }
+        }
+    }
 
     /// <summary>ה-client שולח מחרוזת ריקה כשהשדה לא מולא.</summary>
     private static string? Normalize(string? value) =>
